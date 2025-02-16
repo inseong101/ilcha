@@ -3,7 +3,9 @@ import pyproj
 from scipy.stats import pearsonr
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import seaborn as sns
 
+plt.rcParams['font.family'] = 'AppleGothic'
 
 # 1️⃣ 엑셀 파일 로드
 file_path = "지방행정인허가에서_다운받은_파일.xlsx"
@@ -243,7 +245,7 @@ df_merged.to_excel("한의원_비율_노인 비율_상관분석.xlsx", index=Fal
 ### 6️⃣ 데이터 시각화 ###
 plt.figure(figsize=(10, 6))
 sns.regplot(x=df_merged["노인 비율"], y=df_merged["한의원 비율"], scatter_kws={'alpha':0.5}, line_kws={"color": "red"})
-plt.xlabel("노인 비율 (%)")
+plt.xlabel("노인 비율")
 plt.ylabel("한의원 비율")
 plt.title("노인 비율과 한의원 비율 간 관계")
 plt.savefig("한의원노인비율.png", dpi=300, bbox_inches='tight')
