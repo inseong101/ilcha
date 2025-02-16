@@ -85,7 +85,6 @@ print({col: pearsonr(df_med_ratio["노인 비율"], df_med_ratio[col])[0] for co
 # 피어슨 상관계수 결과 출력 (논문 스타일)
 correlation_results = [(col, *pearsonr(df_med_ratio["노인 비율"], df_med_ratio[col])) for col in ["한의원 비율", "내과의원 비율", "가정의학과의원 비율", "미표방 의원 비율"]]
 df_correlation = pd.DataFrame(correlation_results, columns=["변수", "피어슨 상관계수 (r)", "p-value"])
-df_correlation["결정계수 (R^2)"] = df_correlation["피어슨 상관계수 (r)"].apply(lambda r: r**2)
 df_correlation["샘플 크기 (n)"] = len(df_med_ratio)
 print(df_correlation)
 
