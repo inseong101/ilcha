@@ -2,8 +2,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import pearsonr
-plt.rcParams['font.family'] = 'AppleGothic'
-
 
 # 파일 로드
 file_path = "processed_hospitals.xlsx"
@@ -85,7 +83,7 @@ sns.regplot(x=df_med_ratio["노인 비율"], y=df_med_ratio["내과의원 비율
 sns.regplot(x=df_med_ratio["노인 비율"], y=df_med_ratio["가정의학과의원 비율"], label="가정의학과의원 비율", scatter_kws={'alpha':0.5})
 sns.regplot(x=df_med_ratio["노인 비율"], y=df_med_ratio["미표방 의원 비율"], label="미표방 의원 비율", scatter_kws={'alpha':0.5})
 plt.legend()
-plt.xlabel("노인 비율")
+plt.xlabel("노인 비율 (%)")
 plt.ylabel("의료기관 비율")
 plt.title("노인 비율과 의료기관 유형 간 관계")
 plt.show()
