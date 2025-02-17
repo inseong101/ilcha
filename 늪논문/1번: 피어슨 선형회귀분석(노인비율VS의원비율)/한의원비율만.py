@@ -28,7 +28,7 @@ filtered_df[["경도", "위도"]] = filtered_df.apply(
 
 # 4️⃣ 필요한 컬럼만 유지
 filtered_df = filtered_df[[
-    "업태구분명", "사업장명", "의료인수", "경도", "위도", "소재지전체주소", "인허가일자", "폐업일자", "영업상태명"
+    "업태구분명", "사업장명", "의료인수", "경도", "위도", "소재지전체주소", "도로명전체주소", "인허가일자", "폐업일자", "영업상태명"
 ]]
 
 # 5️⃣ 새로운 엑셀 파일 저장
@@ -78,19 +78,76 @@ def get_address_from_naver(lat, lon):
 new_data = []
 for index, row in tqdm(df.iterrows(), total=df.shape[0], desc='네이버 API 요청 진행 중'):
     sido, sigungu = get_address_from_naver(row["위도"], row["경도"])
-    new_data.append([row["사업장명"], row["업태구분명"], row["의료인수"], row["위도"], row["경도"], sido, sigungu])
+    new_data.append([row["사업장명"], row["업태구분명"], row["의료인수"], row["위도"], row["경도"], sido, sigungu, row["도로명전체주소"], row["소재지전체주소"]])
 
-new_df = pd.DataFrame(new_data, columns=["사업장명", "분류", "의료인수", "위도", "경도", "시도", "시군구"])
+new_df = pd.DataFrame(new_data, columns=["사업장명", "분류", "의료인수", "위도", "경도", "시도", "시군구", "도로명전체주소", "소재지전체주소"])
 
 # 새로운 엑셀 파일 저장
 output_path = "processed_hospitals.xlsx"
 new_df.to_excel(output_path, index=False)
 print(f"파일 저장 완료: {output_path}")
 
+import requests
+import pandas as pd
+import pyproj
+from tqdm import tqdm
+import time
+
+# 네이버 API 키 설정
+CLIENT_ID = "qwt3tw05k9"
+CLIENT_SECRET = "GBfbsLbGQIte7gkUgxW5QKvSnE62EfNuouwtoPJq"
+GEOCODE_URL = "https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode"
+REVERSE_GEOCODE_URL = "https://naveropenapi.apigw.ntruss.com/map-reversegeocode/v2/gc"
+
+# 엑셀 파일 로드
+file_path = "processed_hospitals.xlsx"
+df = pd.read_excel(file_path)
+
+# 네이버 API를 이용해 주소를 위경도로 변환하는 함수
+def get_lat_lon_from_naver(address):
+    headers = {
+        "X-NCP-APIGW-API-KEY-ID": CLIENT_ID,
+        "X-NCP-APIGW-API-KEY": CLIENT_SECRET
+    }
+    params = {"query": address}
+    response = requests.get(GEOCODE_URL, headers=headers, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        if "addresses" in data and len(data["addresses"]) > 0:
+            return float(data["addresses"][0]["y"]), float(data["addresses"][0]["x"])
+    return None, None
+
+# 위경도 데이터가 없는 경우 주소를 이용해 채우기
+tqdm.pandas(desc="주소를 위경도로 변환 중")
+for index, row in df.iterrows():
+    if pd.isna(row["위도"]) or pd.isna(row["경도"]):
+        address = row["도로명전체주소"] if pd.notna(row["도로명전체주소"]) else row["소재지전체주소"]
+        if pd.notna(address):
+            lat, lon = get_lat_lon_from_naver(address)
+            df.at[index, "위도"] = lat
+            df.at[index, "경도"] = lon
+            time.sleep(0.1)  # API 요청 속도 제한 방지
+
+# 시도 및 시군구가 없는 경우 위경도를 이용해 채우기
+tqdm.pandas(desc="위경도로 시도 및 시군구 변환 중")
+for index, row in df.iterrows():
+    if pd.isna(row["시도"]) or pd.isna(row["시군구"]):
+        if pd.notna(row["위도"]) and pd.notna(row["경도"]):
+            sido, sigungu = get_address_from_naver(row["위도"], row["경도"])
+            df.at[index, "시도"] = sido
+            df.at[index, "시군구"] = sigungu
+            time.sleep(0.1)  # API 요청 속도 제한 방지
+
+# 업데이트된 데이터 저장
+output_path = "processed_hospitals_updated.xlsx"
+df.to_excel(output_path, index=False)
+print(f"업데이트된 파일 저장 완료: {output_path}")
+
+
 #수고하셨습니다. NAVER MAPS API를 이용해서 위경도 데이터로 시군구 데이터를 알아냈습니다.
 
 ### 1️⃣ 한의원 비율 계산 ###
-medical_file_path = "processed_hospitals.xlsx"
+medical_file_path = "processed_hospitals_updated.xlsx"
 df_medical = pd.read_excel(medical_file_path)
 
 # 🔹 한의원 및 의원 데이터 필터링
