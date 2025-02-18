@@ -344,10 +344,12 @@ plt.savefig("이중Y축_그래프.png", dpi=300, bbox_inches='tight')
 plt.show()
 
 
+df_correlation_sorted = df_correlation.sort_values(by="피어슨 상관계수 (r)", ascending=False)
+
 # ✅ 피어슨 상관계수 막대그래프 (큰 값부터 정렬)
 plt.figure(figsize=(8, 5))
 sns.barplot(
-    x="변수", y="피어슨 상관계수 (r)", data=df_correlation_sorted, palette="coolwarm", legend=False
+    x="변수", y="피어슨 상관계수 (r)", data=df_correlation_sorted, hue="변수", palette="coolwarm", legend=False
 )
 
 # ✅ 그래프 꾸미기
