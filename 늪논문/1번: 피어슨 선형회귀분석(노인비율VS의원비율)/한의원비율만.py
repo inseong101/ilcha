@@ -28,7 +28,7 @@ filtered_df[["경도", "위도"]] = filtered_df.apply(
 
 # 4️⃣ 필요한 컬럼만 유지
 filtered_df = filtered_df[[
-    "업태구분명", "사업장명", "의료인수", "경도", "위도", "소재지전체주소", "도로명전체주소", "인허가일자", "폐업일자", "영업상태명"
+    "업태구분명", "사업장명", "의료인수", "경도", "위도", "도로명우편번호", "소재지전체주소", "도로명전체주소", "인허가일자", "폐업일자", "영업상태명"
 ]]
 
 # 5️⃣ 새로운 엑셀 파일 저장
@@ -78,9 +78,9 @@ def get_address_from_naver(lat, lon):
 new_data = []
 for index, row in tqdm(df.iterrows(), total=df.shape[0], desc='네이버 API 요청 진행 중'):
     sido, sigungu = get_address_from_naver(row["위도"], row["경도"])
-    new_data.append([row["사업장명"], row["업태구분명"], row["의료인수"], row["위도"], row["경도"], sido, sigungu, row["도로명전체주소"], row["소재지전체주소"]])
+    new_data.append([row["사업장명"], row["업태구분명"], row["의료인수"], row["위도"], row["경도"], sido, sigungu, row["도로명전체주소"], row["소재지전체주소"], row["도로명우편번호"]])
 
-new_df = pd.DataFrame(new_data, columns=["사업장명", "분류", "의료인수", "위도", "경도", "시도", "시군구", "도로명전체주소", "소재지전체주소"])
+new_df = pd.DataFrame(new_data, columns=["사업장명", "분류", "의료인수", "위도", "경도", "시도", "시군구", "도로명전체주소", "소재지전체주소", "도로명우편번호"])
 
 # 새로운 엑셀 파일 저장
 output_path = "processed_hospitals.xlsx"
