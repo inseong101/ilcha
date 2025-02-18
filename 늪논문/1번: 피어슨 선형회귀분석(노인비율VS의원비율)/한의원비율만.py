@@ -159,6 +159,9 @@ df_hanmed["가중치_의료인수"] = df_hanmed["의료인수"]
 df_clinic["가중치_의료인수"] = df_clinic["의료인수"]
 
 # 🔹 "시도 + 시군구" 결합 후 공백 제거
+df_hanmed["시군구"] = df_hanmed["시군구"].fillna("")
+df_clinic["시군구"] = df_clinic["시군구"].fillna("")
+
 df_hanmed["시군구_통합"] = (df_hanmed["시도"] + " " + df_hanmed["시군구"]).str.strip()
 df_clinic["시군구_통합"] = (df_clinic["시도"] + " " + df_clinic["시군구"]).str.strip()
 
@@ -238,7 +241,7 @@ def preprocess_population_data(file_path, output_path):
                    / df["총 인구수"]).round(4)
 
     # 필요한 칼럼만 유지
-    df = df[["행정기관", "노인 비율"]]
+    df = df[["행정기관", "노인 비율", "총 인구수"]]
 
     # 결과 저장 (xlsxwriter가 없을 경우 openpyxl 사용)
     try:

@@ -186,14 +186,17 @@ df_med_ratio = pd.merge(df_med_ratio, clinic_ratio, on="시군구_통합", how="
 
 
 # 📌 전체 의료기관 의료인수 계산 (한의원 + 의원)
-df_med_ratio["전체 의료기관 의료인수"] = df_med_ratio["한의원 의료인수 총합"] + df_med_ratio["의원 의료인수 총합"] + df_med_ratio["보건원 의료인수 총합"]
+df_med_ratio["전체 의료기관 의료인수"] = df_med_ratio["한의원 의료인수 총합"] + df_med_ratio["의원 의료인수 총합"]
 
 # 📌 한의원 비율
 df_med_ratio["한의원 비율"] = df_med_ratio["한의원 의료인수 총합"] / df_med_ratio["전체 의료기관 의료인수"]
-df_med_ratio["보건원 비율"] = df_med_ratio["보건원 의료인수 총합"] / df_med_ratio["전체 의료기관 의료인수"]
 
 # ✅ '노인 비율' 데이터 병합
-df_med_ratio = pd.merge(df_med_ratio, df_age[["시군구_통합", "노인 비율"]], on="시군구_통합", how="left")
+df_med_ratio = pd.merge(df_med_ratio, df_age[["시군구_통합", "노인 비율", "총 인구수"]], on="시군구_통합", how="left")
+
+# 📌 보건원 비율
+df_med_ratio["인구당 보건원 의료인수"] = df_med_ratio["보건원 의료인수 총합"] / df_med_ratio["총 인구수"]
+
 
 # 📌 내과의원, 가정의학과의원, 미표방 의원 필터링
 df_internal_medicine = df_clinic[df_clinic["사업장명"].str.endswith("내과의원")]
@@ -273,7 +276,7 @@ df_med_ratio["시범사업 참여의원 비율"] = df_med_ratio["시범사업 �
 
 # ✅ 피어슨 상관 분석 및 시각화
 plt.figure(figsize=(10, 6))
-for col in ["한의원 비율", "내과의원 비율", "가정의학과의원 비율", "미표방 의원 비율", "시범사업 참여의원 비율", "보건원 비율"]:
+for col in ["한의원 비율", "내과의원 비율", "가정의학과의원 비율", "미표방 의원 비율", "시범사업 참여의원 비율", "인구당 보건원 의료인수"]:
     sns.regplot(x=df_med_ratio["노인 비율"], y=df_med_ratio[col], label=col, scatter_kws={'alpha': 0.5})
 
 print("🔍 df_med_ratio 컬럼 목록:", df_med_ratio.columns)
@@ -281,7 +284,7 @@ print(df_med_ratio.head())  # 상위 5개 행 출력하여 값 확인
 
 # ✅ 피어슨 상관 분석
 correlation_results = [(col, *pearsonr(df_med_ratio["노인 비율"], df_med_ratio[col])) for col in
-                       ["한의원 비율", "내과의원 비율", "가정의학과의원 비율", "미표방 의원 비율", "시범사업 참여의원 비율", "보건원 비율"]]
+                       ["한의원 비율", "내과의원 비율", "가정의학과의원 비율", "미표방 의원 비율", "시범사업 참여의원 비율", "인구당 보건원 의료인수"]]
 df_correlation = pd.DataFrame(correlation_results, columns=["변수", "피어슨 상관계수 (r)", "p-value"])
 
 # ✅ 각 의료기관 유형별 개수(n) 및 총 의료인 수(nn) 계산
@@ -311,28 +314,50 @@ df_correlation["총 의료인 수 (nn)"] = num_medical_staff_values
 # ✅ 최종 결과 출력
 print(df_correlation)
 
-plt.legend()
-plt.xlabel("노인 비율")
-plt.ylabel("의료기관 비율")
-plt.title("노인 비율과 의료기관 유형 간 관계")
-plt.savefig("6개의그림.png", dpi=300, bbox_inches='tight')
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# ✅ 메인 그래프 설정 (왼쪽 Y축)
+fig, ax1 = plt.subplots(figsize=(10, 6))
+
+colors = ['b', 'g', 'r', 'c', 'm']  # 그래프 색상 지정
+columns = ["한의원 비율", "내과의원 비율", "가정의학과의원 비율", "미표방 의원 비율", "시범사업 참여의원 비율"]
+
+# ✅ 비율 데이터를 왼쪽 Y축에 플로팅
+for i, col in enumerate(columns):
+    sns.regplot(x=df_med_ratio["노인 비율"], y=df_med_ratio[col], ax=ax1, label=col, scatter=False, color=colors[i])
+
+ax1.set_xlabel("노인 비율")
+ax1.set_ylabel("의료기관 비율 (0~1)")
+ax1.legend(loc="upper left")
+
+# ✅ 보조 Y축 생성 (오른쪽 Y축)
+ax2 = ax1.twinx()
+sns.regplot(x=df_med_ratio["노인 비율"], y=df_med_ratio["인구당 보건원 의료인수"], ax=ax2, scatter=False, color='orange')
+
+ax2.set_ylabel("인구당 보건원 의료인수 (0~1)")
+ax2.legend(loc="upper right")
+
+# ✅ 그래프 제목 설정 및 저장
+plt.title("노인 비율과 의료기관 유형 간 관계 (이중 Y축)")
+plt.savefig("이중Y축_그래프.png", dpi=300, bbox_inches='tight')
 plt.show()
 
 
-# ✅ 피어슨 상관계수 막대그래프
+# ✅ 피어슨 상관계수 막대그래프 (큰 값부터 정렬)
 plt.figure(figsize=(8, 5))
 sns.barplot(
-    x="변수", y="피어슨 상관계수 (r)", hue="변수", data=df_correlation, palette="coolwarm", legend=False
+    x="변수", y="피어슨 상관계수 (r)", data=df_correlation_sorted, palette="coolwarm", legend=False
 )
 
 # ✅ 그래프 꾸미기
 plt.axhline(0, color="black", linewidth=1)  # 0 기준선 추가
-plt.xticks()
+plt.xticks(rotation=45)  # X축 라벨 기울여서 가독성 향상
 plt.ylabel("피어슨 상관계수 (r)")
-plt.title("노인 비율과 의료기관 유형 간 피어슨 상관계수 비교")
+plt.title("노인 비율과 의료기관 유형 간 피어슨 상관계수 비교 (내림차순 정렬)")
 
 # ✅ 그래프 저장
-plt.savefig("피어슨_막대그래프.png", dpi=300, bbox_inches='tight')
+plt.savefig("피어슨_막대그래프_정렬.png", dpi=300, bbox_inches='tight')
 
 # ✅ 그래프 표시
 plt.show()
