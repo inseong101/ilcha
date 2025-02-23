@@ -38,6 +38,7 @@ population_df.rename(columns={'행정기관': '지역구'}, inplace=True)
 # 의원과 한의원을 분리
 clinic_df = hospitals_df[hospitals_df['분류'] == '의원']
 oriental_df = hospitals_df[hospitals_df['분류'] == '한의원']
+all_df = hospitals_df[(hospitals_df['분류'] == '한의원') | (hospitals_df['분류'] == '의원')]
 
 
 # Step 1: 지역별 시설 개수 계산
@@ -48,15 +49,17 @@ def count_facilities_by_region(facility_df):
 bogun_count = count_facilities_by_region(bogun_df)
 clinic_count = count_facilities_by_region(clinic_df)
 oriental_count = count_facilities_by_region(oriental_df)
+all_count = count_facilities_by_region(all_df)
 
 # Step 2: 지역별 인구수와 시설 수 합치기
 merged_bogun = pd.merge(population_df, bogun_count, on="지역구", how="left").fillna(0)
 merged_clinic = pd.merge(population_df, clinic_count, on="지역구", how="left").fillna(0)
 merged_oriental = pd.merge(population_df, oriental_count, on="지역구", how="left").fillna(0)
+merged_all = pd.merge(population_df, all_count, on="지역구", how="left").fillna(0)
 
 
 # Step 3: 인구 밀도와 시설 밀도 계산
-def calculate_density(df, pop_col="총 인구수", facility_col="시설 수", area_col="면적"):
+def calculate_density(df, pop_col="총 인구수", noin_col="노인 비율", facility_col="시설 수", area_col="면적"):
     df["인구 밀도"] = df[pop_col] / df[area_col]
     df["시설 밀도"] = df[facility_col] / df[area_col]
     return df
@@ -65,6 +68,7 @@ def calculate_density(df, pop_col="총 인구수", facility_col="시설 수", ar
 merged_bogun = calculate_density(merged_bogun)
 merged_clinic = calculate_density(merged_clinic)
 merged_oriental = calculate_density(merged_oriental)
+merged_all = calculate_density(merged_all)
 
 
 # Step 4: 로그 변환 및 그래프 분석
@@ -91,11 +95,13 @@ def log_log_analysis(df, title):
 alpha_bogun = log_log_analysis(merged_bogun, "보건소 배치 패턴")
 alpha_clinic = log_log_analysis(merged_clinic, "의원 배치 패턴")
 alpha_oriental = log_log_analysis(merged_oriental, "한의원 배치 패턴")
+alpha_all = log_log_analysis(merged_all, "Primary clinic")
 
 # Step 6: 결과 해석
 print(f"보건소의 α 값: {alpha_bogun}")
 print(f"의원의 α 값: {alpha_clinic}")
 print(f"한의원의 α 값: {alpha_oriental}")
+print(f"Primary clinic의 α 값: {alpha_all}")
 
 if alpha_bogun < 1:
     print("보건소는 공공시설적인 배치를 보입니다 (α < 1).")
