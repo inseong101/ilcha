@@ -181,6 +181,12 @@ for key, value in clinic_counts.items():
     print(f"{key}: {value}개")
 
 
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+from scipy.stats import gaussian_kde
+
 # ✅ KDE 계산 함수
 def compute_kde(data, grid_size=100):
     """ KDE를 계산하고 격자로 변환 """
@@ -199,44 +205,55 @@ def compute_kde(data, grid_size=100):
     density = kde(positions).reshape(xx.shape)
     return density.flatten()
 
-
 # ✅ Bhattacharyya Distance 계산 함수
 def bhattacharyya_distance(p, q):
-    """두 KDE 분포 간 바타차리야 거리 계산"""
+    """ 두 KDE 분포 간 바타차리야 거리 계산 """
     p = p / np.sum(p)  # 정규화
     q = q / np.sum(q)  # 정규화
     return -np.log(np.sum(np.sqrt(p * q)))
 
+# ✅ 보건소 및 의료기관 유형별 데이터 저장
+clinic_category_coords = {
+    "보건소": bogun_coords,
+    "의원": clinic_coords,
+    "한의원": df_hanmed[["경도", "위도"]].dropna(),
+    "내과의원": df_internal_medicine[["경도", "위도"]].dropna(),
+    "가정의학과의원": df_family_medicine[["경도", "위도"]].dropna(),
+    "미표방의원": df_non_specialized[["경도", "위도"]].dropna(),
+    "시범사업 참여의원": df_chronic_clinic[["경도", "위도"]].dropna(),
+}
 
-# ✅ 보건소 KDE 계산
-bogun_kde = compute_kde(bogun_coords)
+# ✅ 모든 의료기관 간 바타차리야 거리 계산 (7x7 행렬)
+categories = list(clinic_category_coords.keys())
+num_categories = len(categories)
 
-# ✅ 모든 의원 유형과 보건소의 바타차리야 거리 계산
-bhatt_distances = {}
-for category, coords in clinic_category_coords.items():
-    if len(coords) > 1:  # 데이터가 1개 이하인 경우 KDE 계산 생략
-        category_kde = compute_kde(coords)
-        bhatt_distances[category] = bhattacharyya_distance(bogun_kde, category_kde)
-    else:
-        print(f"⚠ {category} 데이터가 부족하여 바타차리야 거리 계산을 생략합니다.")
-        bhatt_distances[category] = np.nan
+# ✅ 거리 행렬 초기화
+distance_matrix = np.zeros((num_categories, num_categories))
+
+# ✅ 모든 유형 간 바타차리야 거리 계산
+kde_dict = {category: compute_kde(coords) for category, coords in clinic_category_coords.items() if len(coords) > 1}
+
+for i in range(num_categories):
+    for j in range(i, num_categories):  # 대칭 행렬이므로 절반만 계산
+        if i == j:
+            distance_matrix[i, j] = 0  # 동일한 분포 간 거리는 0
+        else:
+            dist = bhattacharyya_distance(kde_dict[categories[i]], kde_dict[categories[j]])
+            distance_matrix[i, j] = dist
+            distance_matrix[j, i] = dist  # 대칭 적용
+
+# ✅ DataFrame으로 변환
+df_distance_matrix = pd.DataFrame(distance_matrix, index=categories, columns=categories)
 
 # ✅ 결과 출력
-print("\n🔹 Bhattacharyya Distance (보건소 vs. 의료기관)")
-for key, value in bhatt_distances.items():
-    print(f"보건소 vs. {key}: {value:.4f}")
+print("\n🔹 의료기관 유형 간 Bhattacharyya Distance 행렬")
+print(df_distance_matrix)
 
-# ✅ 바타차리야 거리 비교 (막대그래프 시각화)
-df_results = pd.DataFrame.from_dict(bhatt_distances, orient="index", columns=["Bhattacharyya Distance"])
-df_results = df_results.sort_values(by="Bhattacharyya Distance")  # 작은 값부터 정렬
-
-# ✅ NaN 값을 가진 행 제거 (데이터 부족 문제 해결)
-df_results = df_results.dropna()
-
-df_results.plot(kind="bar", figsize=(10, 6), colormap="coolwarm", edgecolor="black")
-plt.title("보건소 vs. 의료기관 유형 간 Bhattacharyya Distance 비교")
-plt.ylabel("Bhattacharyya Distance (낮을수록 유사)")
-plt.xticks(rotation=45)
-plt.grid(axis="y", linestyle="--", alpha=0.7)
-plt.savefig("바타차리야_거리.png", dpi=300, bbox_inches='tight')
+# ✅ 거리 행렬 시각화 (Heatmap)
+plt.figure(figsize=(8, 6))
+sns.heatmap(df_distance_matrix, annot=True, cmap="coolwarm", fmt=".4f", linewidths=0.5)
+plt.title("의료기관 유형 간 Bhattacharyya Distance 행렬")
+plt.ylabel("기관 유형")
+plt.xlabel("기관 유형")
+plt.savefig("바타차리야_거리_행렬.png", dpi=300, bbox_inches='tight')
 plt.show()

@@ -191,6 +191,10 @@ df_med_ratio["전체 의료기관 의료인수"] = df_med_ratio["한의원 의�
 # 📌 한의원 비율
 df_med_ratio["한의원 비율"] = df_med_ratio["한의원 의료인수 총합"] / df_med_ratio["전체 의료기관 의료인수"]
 
+#의원 비율
+df_med_ratio["의원 비율"] = df_med_ratio["의원 의료인수 총합"] / df_med_ratio["전체 의료기관 의료인수"]
+
+
 # ✅ '노인 비율' 데이터 병합
 df_med_ratio = pd.merge(df_med_ratio, df_age[["시군구_통합", "노인 비율", "총 인구수"]], on="시군구_통합", how="left")
 
@@ -284,12 +288,13 @@ print(df_med_ratio.head())  # 상위 5개 행 출력하여 값 확인
 
 # ✅ 피어슨 상관 분석
 correlation_results = [(col, *pearsonr(df_med_ratio["노인 비율"], df_med_ratio[col])) for col in
-                       ["한의원 비율", "내과의원 비율", "가정의학과의원 비율", "미표방 의원 비율", "시범사업 참여의원 비율", "인구당 보건원 의료인수"]]
+                       ["한의원 비율", "의원 비율", "내과의원 비율", "가정의학과의원 비율", "미표방 의원 비율", "시범사업 참여의원 비율", "인구당 보건원 의료인수"]]
 df_correlation = pd.DataFrame(correlation_results, columns=["변수", "피어슨 상관계수 (r)", "p-value"])
 
 # ✅ 각 의료기관 유형별 개수(n) 및 총 의료인 수(nn) 계산
 num_hanmed = df_hanmed.shape[0]  # 한의원 개수
 num_Bogun = df_Bogun.shape[0]
+num_clinic = df_clinic.shape[0]
 num_internal_medicine = df_internal_medicine.shape[0]  # 내과의원 개수
 num_family_medicine = df_family_medicine.shape[0]  # 가정의학과의원 개수
 num_non_specialized = df_non_specialized.shape[0]  # 미표방 의원 개수
@@ -298,14 +303,15 @@ num_chronic_care = df_chronic_clinic.shape[0]  # 시범사업 참여의원 개�
 # ✅ 총 의료인 수 계산
 sum_hanmed = df_hanmed["의료인수"].sum()  # 한의원 총 의료인수
 sum_Bogun = df_Bogun["의료인수"].sum()
+sum_clinic = df_clinic["의료인수"].sum()
 sum_internal_medicine = df_internal_medicine["의료인수"].sum()  # 내과의원 총 의료인수
 sum_family_medicine = df_family_medicine["의료인수"].sum()  # 가정의학과의원 총 의료인수
 sum_non_specialized = df_non_specialized["의료인수"].sum()  # 미표방 의원 총 의료인수
 sum_chronic_care = df_chronic_clinic["의료인수"].sum()  # 시범사업 참여의원 총 의료인수
 
 # ✅ 개수(n) 및 총 의료인수(nn) 리스트 생성
-num_values = [num_hanmed, num_internal_medicine, num_family_medicine, num_non_specialized, num_chronic_care, num_Bogun]
-num_medical_staff_values = [sum_hanmed, sum_internal_medicine, sum_family_medicine, sum_non_specialized, sum_chronic_care, sum_Bogun]
+num_values = [num_hanmed, num_clinic, num_internal_medicine, num_family_medicine, num_non_specialized, num_chronic_care, num_Bogun]
+num_medical_staff_values = [sum_hanmed, sum_clinic, sum_internal_medicine, sum_family_medicine, sum_non_specialized, sum_chronic_care, sum_Bogun]
 
 # ✅ df_correlation에 개수(n) 및 의료인수(nn) 추가
 df_correlation["의료기관 개수 (n)"] = num_values
@@ -320,8 +326,8 @@ import seaborn as sns
 # ✅ 메인 그래프 설정 (왼쪽 Y축)
 fig, ax1 = plt.subplots(figsize=(10, 6))
 
-colors = ['b', 'g', 'r', 'c', 'm']  # 그래프 색상 지정
-columns = ["한의원 비율", "내과의원 비율", "가정의학과의원 비율", "미표방 의원 비율", "시범사업 참여의원 비율"]
+colors = ['b', 'g', 'y', 'r', 'c', 'm']  # 그래프 색상 지정
+columns = ["한의원 비율", "의원 비율", "내과의원 비율", "가정의학과의원 비율", "미표방 의원 비율", "시범사업 참여의원 비율"]
 
 # ✅ 비율 데이터를 왼쪽 Y축에 플로팅
 for i, col in enumerate(columns):
@@ -333,10 +339,11 @@ ax1.legend(loc="upper left")
 
 # ✅ 보조 Y축 생성 (오른쪽 Y축)
 ax2 = ax1.twinx()
-sns.regplot(x=df_med_ratio["노인 비율"], y=df_med_ratio["인구당 보건원 의료인수"], ax=ax2, scatter=False, color='orange')
+sns.regplot(x=df_med_ratio["노인 비율"], y=df_med_ratio["인구당 보건원 의료인수"],
+            ax=ax2, scatter=False, color='orange', label="인구당 보건원 의료인수")
 
 ax2.set_ylabel("인구당 보건원 의료인수 (0~1)")
-ax2.legend(loc="upper right")
+ax2.legend(loc="upper right")  # ✅ label이 설정되었으므로 정상 작동
 
 # ✅ 그래프 제목 설정 및 저장
 plt.title("노인 비율과 의료기관 유형 간 관계 (이중 Y축)")
