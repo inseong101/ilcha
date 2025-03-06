@@ -9,7 +9,7 @@ plt.rcParams['font.family'] = 'AppleGothic'  # Mac (Windows는 'Malgun Gothic')
 plt.rcParams['axes.unicode_minus'] = False  # 마이너스 부호 깨짐 방지
 
 # 파일 경로
-population_file = "전처리된_노인비율+면적.xlsx"
+population_file = "전처리된_노인비율+면적.xlsx"
 bogun_file = "processed_Bogun_updated.xlsx"
 hospitals_file = "processed_hospitals_updated.xlsx"
 
@@ -70,50 +70,141 @@ merged_clinic = calculate_density(merged_clinic)
 merged_oriental = calculate_density(merged_oriental)
 merged_all = calculate_density(merged_all)
 
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy.stats import linregress
+import os
 
-# Step 4: 로그 변환 및 그래프 분석
-def log_log_analysis(df, title):
+# ✅ 한글 폰트 설정 (Windows: 'Malgun Gothic', Mac: 'AppleGothic')
+plt.rcParams['font.family'] = 'Arial'
+plt.rcParams['axes.unicode_minus'] = False  # 마이너스 부호 깨짐 방지
+
+# ✅ 그래프 저장 경로 설정
+save_path = "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/1번: 물리학적분석"
+
+
+# ✅ 로그-로그 스케일 그래프 함수
+def log_log_analysis(df, title, filename):
     df = df[(df["인구 밀도"] > 0) & (df["시설 밀도"] > 0)]
+
     log_p = np.log10(df["인구 밀도"])
     log_D = np.log10(df["시설 밀도"])
 
     slope, intercept, r_value, p_value, std_err = linregress(log_p, log_D)
 
     plt.figure(figsize=(8, 6))
-    sns.scatterplot(x=log_p, y=log_D)
-    plt.plot(log_p, slope * log_p + intercept, color='red', label=f'α = {slope:.3f}')
-    plt.xlabel("log 인구 밀도")
-    plt.ylabel("log 시설 밀도")
-    plt.title(title + f' (α = {slope:.3f})')
-    plt.legend()
+    plt.xscale("log")  # ✅ X축 로그 스케일
+    plt.yscale("log")  # ✅ Y축 로그 스케일
+
+    # ✅ 점 스타일 조정 (투명도, 크기)
+    plt.scatter(10 ** log_p, 10 ** log_D, edgecolor='blue', facecolor='none', alpha=0.7, label="Data Points")
+
+    # ✅ 회귀선 추가 (기울기 α 표시)
+    x_vals = np.linspace(log_p.min(), log_p.max(), 100)
+    plt.plot(10 ** x_vals, 10 ** (slope * x_vals + intercept), color='red', linewidth=2, label=f'~ ρ^{slope:.2f}')
+
+    # ✅ 축 및 레이블
+    plt.xlabel("Population Density ρ (in /km²)", fontsize=14)
+    plt.ylabel("Facility Density D (in /km²)", fontsize=14)
+
+    # ✅ 기울기 (α) 텍스트 추가
+    text_x = 16 ** (log_p.mean())
+    text_y = 10 ** (slope * log_p.mean() + intercept) * 2  # 위치 조정
+    plt.text(text_x, text_y, f"$\\sim \\rho^{{{slope:.2f}}}$", color="red", fontsize=16, fontweight='bold')
+    plt.grid(True, which="both", linestyle="--", alpha=0.5)
+
+    # ✅ 그래프 저장 (dpi=500)
+    plt.savefig(os.path.join(save_path, filename), dpi=500, bbox_inches="tight")
     plt.show()
 
     return slope
 
 
-# Step 5: 로그-로그 회귀 분석 수행
-alpha_bogun = log_log_analysis(merged_bogun, "보건소 배치 패턴")
-alpha_clinic = log_log_analysis(merged_clinic, "의원 배치 패턴")
-alpha_oriental = log_log_analysis(merged_oriental, "한의원 배치 패턴")
-alpha_all = log_log_analysis(merged_all, "Primary clinic")
+# ✅ 로그-로그 분석 및 그래프 저장
+alpha_bogun = log_log_analysis(merged_bogun, "보건소 배치 패턴",
+                               "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/1번: 물리학적분석/log_log_bogun.png")
+alpha_clinic = log_log_analysis(merged_clinic, "의원 배치 패턴",
+                                "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/1번: 물리학적분석/log_log_clinic.png")
+alpha_oriental = log_log_analysis(merged_oriental, "한의원 배치 패턴",
+                                  "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/1번: 물리학적분석/log_log_oriental.png")
+alpha_all = log_log_analysis(merged_all, "Primary clinic",
+                             "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/1번: 물리학적분석/log_log_all.png")
 
-# Step 6: 결과 해석
+# ✅ α 값 출력
 print(f"보건소의 α 값: {alpha_bogun}")
 print(f"의원의 α 값: {alpha_clinic}")
 print(f"한의원의 α 값: {alpha_oriental}")
 print(f"Primary clinic의 α 값: {alpha_all}")
 
-if alpha_bogun < 1:
-    print("보건소는 공공시설적인 배치를 보입니다 (α < 1).")
-else:
-    print("보건소는 상업시설적인 배치를 보입니다 (α > 1).")
 
-if alpha_clinic < 1:
-    print("의원은 공공시설적인 배치를 보입니다 (α < 1).")
-else:
-    print("의원은 상업시설적인 배치를 보입니다 (α > 1).")
+# ✅ 결과 해석
+def interpret_result(alpha, facility_name):
+    if alpha < 1:
+        print(f"{facility_name}는 공공시설적인 배치를 보입니다 (α < 1).")
+    else:
+        print(f"{facility_name}는 상업시설적인 배치를 보입니다 (α > 1).")
 
-if alpha_oriental < 1:
-    print("한의원은 공공시설적인 배치를 보입니다 (α < 1).")
-else:
-    print("한의원은 상업시설적인 배치를 보입니다 (α > 1).")
+
+interpret_result(alpha_bogun, "보건소")
+interpret_result(alpha_clinic, "의원")
+interpret_result(alpha_oriental, "한의원")
+interpret_result(alpha_all, "Primary clinic")
+
+
+
+
+
+
+
+
+
+
+
+# # Step 4: 로그 변환 및 그래프 분석
+# def log_log_analysis(df, title):
+#     df = df[(df["인구 밀도"] > 0) & (df["시설 밀도"] > 0)]
+#     log_p = np.log10(df["인구 밀도"])
+#     log_D = np.log10(df["시설 밀도"])
+#
+#     slope, intercept, r_value, p_value, std_err = linregress(log_p, log_D)
+#
+#     plt.figure(figsize=(8, 6))
+#     sns.scatterplot(x=log_p, y=log_D)
+#     plt.plot(log_p, slope * log_p + intercept, color='red', label=f'α = {slope:.3f}')
+#     plt.xlabel("log 인구 밀도")
+#     plt.ylabel("log 시설 밀도")
+#     plt.title(title + f' (α = {slope:.3f})')
+#     plt.legend()
+#     plt.show()
+#
+#     return slope
+#
+#
+# # Step 5: 로그-로그 회귀 분석 수행
+# alpha_bogun = log_log_analysis(merged_bogun, "보건소 배치 패턴")
+# alpha_clinic = log_log_analysis(merged_clinic, "의원 배치 패턴")
+# alpha_oriental = log_log_analysis(merged_oriental, "한의원 배치 패턴")
+# alpha_all = log_log_analysis(merged_all, "Primary clinic")
+#
+# # Step 6: 결과 해석
+# print(f"보건소의 α 값: {alpha_bogun}")
+# print(f"의원의 α 값: {alpha_clinic}")
+# print(f"한의원의 α 값: {alpha_oriental}")
+# print(f"Primary clinic의 α 값: {alpha_all}")
+#
+# if alpha_bogun < 1:
+#     print("보건소는 공공시설적인 배치를 보입니다 (α < 1).")
+# else:
+#     print("보건소는 상업시설적인 배치를 보입니다 (α > 1).")
+#
+# if alpha_clinic < 1:
+#     print("의원은 공공시설적인 배치를 보입니다 (α < 1).")
+# else:
+#     print("의원은 상업시설적인 배치를 보입니다 (α > 1).")
+#
+# if alpha_oriental < 1:
+#     print("한의원은 공공시설적인 배치를 보입니다 (α < 1).")
+# else:
+#     print("한의원은 상업시설적인 배치를 보입니다 (α > 1).")

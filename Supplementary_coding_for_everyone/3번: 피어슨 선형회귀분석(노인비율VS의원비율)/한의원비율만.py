@@ -1,11 +1,143 @@
+import pyproj
+import pandas as pd
+import matplotlib.pyplot as plt
+import requests
+
+# 1️⃣ 엑셀 파일 로드
+file_path = "지방행정인허가에서_다운받은_파일.xlsx"
+#다운받는 곳: https://www.localdata.go.kr/devcenter/dataDown.do?menuNo=20001 여기서 맨 밑에 의원 xlsx로 다운받으세요.
+df = pd.read_excel(file_path, engine="openpyxl")
+
+# 2️⃣ "의원" 또는 "한의원"에 해당하고, "영업상태명"이 "영업/정상"인 데이터 필터링
+filtered_df = df[
+    (df["의료기관종별명"].isin(["보건소", "보건지소", "보건진료소"])) & (df["영업상태명"] == "영업/정상")
+].copy()
+
+# 3️⃣ EPSG:5174 -> EPSG:4326 (위도/경도) 변환
+transformer = pyproj.Transformer.from_crs("EPSG:5174", "EPSG:4326", always_xy=True)
+
+# 좌표 변환 적용
+filtered_df[["경도", "위도"]] = filtered_df.apply(
+    lambda row: pd.Series(transformer.transform(row["좌표정보X(EPSG5174)"], row["좌표정보Y(EPSG5174)"])),
+    axis=1
+)
+
+# 4️⃣ 필요한 컬럼만 유지
+filtered_df = filtered_df[[
+    "업태구분명", "사업장명", "의료인수", "경도", "위도", "도로명우편번호", "소재지전체주소", "도로명전체주소", "인허가일자", "폐업일자", "영업상태명"
+]]
+
+# 5️⃣ 새로운 엑셀 파일 저장
+output_path = "Bogun.xlsx"
+filtered_df.to_excel(output_path, index=False)
+
+print(f"✅ 변환된 엑셀 파일이 저장되었습니다: {output_path}")
+
+from tqdm import tqdm
+
+# 네이버 API 키 설정
+CLIENT_ID = "qwt3tw05k9"
+CLIENT_SECRET = "GBfbsLbGQIte7gkUgxW5QKvSnE62EfNuouwtoPJq"
+REVERSE_GEOCODE_URL = "https://naveropenapi.apigw.ntruss.com/map-reversegeocode/v2/gc"
+
+# 엑셀 파일 로드
+Bogun_file_path = "Bogun.xlsx"
+df = pd.read_excel(Bogun_file_path)
+
+# 네이버 API를 이용해 시도 및 시군구 정보를 가져오는 함수
+def get_address_from_naver(lat, lon):
+    headers = {
+        "X-NCP-APIGW-API-KEY-ID": CLIENT_ID,
+        "X-NCP-APIGW-API-KEY": CLIENT_SECRET
+    }
+    params = {
+        "coords": f"{lon},{lat}",
+        "output": "json",
+        "orders": "legalcode"
+    }
+    response = requests.get(REVERSE_GEOCODE_URL, headers=headers, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        try:
+            region = data["results"][0]["region"]
+            sido = region["area1"]["name"]
+            sigungu = region["area2"]["name"]
+            return sido, sigungu
+        except (IndexError, KeyError):
+            return None, None
+    return None, None
+
+# 새로운 데이터프레임 생성
+new_data = []
+for index, row in tqdm(df.iterrows(), total=df.shape[0], desc='네이버 API 요청 진행 중'):
+    sido, sigungu = get_address_from_naver(row["위도"], row["경도"])
+    new_data.append([row["사업장명"], row["업태구분명"], row["의료인수"], row["위도"], row["경도"], sido, sigungu, row["도로명전체주소"], row["소재지전체주소"], row["도로명우편번호"]])
+
+new_df = pd.DataFrame(new_data, columns=["사업장명", "분류", "의료인수", "위도", "경도", "시도", "시군구", "도로명전체주소", "소재지전체주소", "도로명우편번호"])
+
+# 새로운 엑셀 파일 저장
+output_path = "processed_Bogun.xlsx"
+new_df.to_excel(output_path, index=False)
+print(f"파일 저장 완료: {output_path}")
+
 import pandas as pd
 import pyproj
-from scipy.stats import pearsonr
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-import seaborn as sns
+import time
 
-plt.rcParams['font.family'] = 'AppleGothic'
+# 네이버 API 키 설정
+CLIENT_ID = "qwt3tw05k9"
+CLIENT_SECRET = "GBfbsLbGQIte7gkUgxW5QKvSnE62EfNuouwtoPJq"
+GEOCODE_URL = "https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode"
+REVERSE_GEOCODE_URL = "https://naveropenapi.apigw.ntruss.com/map-reversegeocode/v2/gc"
+
+# 엑셀 파일 로드
+file_path = "processed_Bogun.xlsx"
+df = pd.read_excel(file_path)
+
+# 네이버 API를 이용해 주소를 위경도로 변환하는 함수
+def get_lat_lon_from_naver(address):
+    headers = {
+        "X-NCP-APIGW-API-KEY-ID": CLIENT_ID,
+        "X-NCP-APIGW-API-KEY": CLIENT_SECRET
+    }
+    params = {"query": address}
+    response = requests.get(GEOCODE_URL, headers=headers, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        if "addresses" in data and len(data["addresses"]) > 0:
+            return float(data["addresses"][0]["y"]), float(data["addresses"][0]["x"])
+    return None, None
+
+# 위경도 데이터가 없는 경우 주소를 이용해 채우기
+tqdm.pandas(desc="주소를 위경도로 변환 중")
+for index, row in df.iterrows():
+    if pd.isna(row["위도"]) or pd.isna(row["경도"]):
+        address = row["도로명전체주소"] if pd.notna(row["도로명전체주소"]) else row["소재지전체주소"]
+        if pd.notna(address):
+            lat, lon = get_lat_lon_from_naver(address)
+            df.at[index, "위도"] = lat
+            df.at[index, "경도"] = lon
+            time.sleep(0.1)  # API 요청 속도 제한 방지
+
+# 시도 및 시군구가 없는 경우 위경도를 이용해 채우기
+tqdm.pandas(desc="위경도로 시도 및 시군구 변환 중")
+for index, row in df.iterrows():
+    if pd.isna(row["시도"]) or pd.isna(row["시군구"]):
+        if pd.notna(row["위도"]) and pd.notna(row["경도"]):
+            sido, sigungu = get_address_from_naver(row["위도"], row["경도"])
+            df.at[index, "시도"] = sido
+            df.at[index, "시군구"] = sigungu
+            time.sleep(0.1)  # API 요청 속도 제한 방지
+
+# 업데이트된 데이터 저장
+output_path = "processed_Bogun_updated.xlsx"
+df.to_excel(output_path, index=False)
+print(f"업데이트된 파일 저장 완료: {output_path}")
+
+# ✅ 한글 폰트 설정 (Windows: 'Malgun Gothic', Mac: 'AppleGothic')
+plt.rcParams['font.family'] = 'Arial'
+plt.rcParams['axes.unicode_minus'] = False  # 마이너스 부호 깨짐 방지
 
 # 1️⃣ 엑셀 파일 로드
 file_path = "지방행정인허가에서_다운받은_파일.xlsx"
@@ -39,7 +171,6 @@ print(f"✅ 변환된 엑셀 파일이 저장되었습니다: {output_path}")
 
 #수고하셨습니다. 지방행정인허가에서 영업중인 의원과 한의원의 의료인수와 위치를 알아냈습니다.
 
-import requests
 from tqdm import tqdm
 
 # 네이버 API 키 설정
@@ -142,7 +273,6 @@ for index, row in df.iterrows():
 output_path = "processed_hospitals_updated.xlsx"
 df.to_excel(output_path, index=False)
 print(f"업데이트된 파일 저장 완료: {output_path}")
-
 
 #수고하셨습니다. NAVER MAPS API를 이용해서 위경도 데이터로 시군구 데이터를 알아냈습니다.
 
@@ -291,22 +421,39 @@ print(f"병합된 데이터 개수: {len(df_merged)}")
 # 🔹 NaN 값 제거
 df_merged = df_merged.dropna(subset=["한의원 비율", "노인 비율"])
 
-### 4️⃣ 상관관계 분석 ###
-if len(df_merged) > 1:
-    correlation, p_value = pearsonr(df_merged["한의원 비율"], df_merged["노인 비율"])
-    print(f"📌 한의원 비율과 노인 비율의 상관계수: {correlation:.4f}")
-    print(f"📌 p-value: {p_value:.4f}")
-else:
-    print("⚠ 데이터 개수가 부족하여 상관계수를 계산할 수 없습니다.")
-
-### 5️⃣ 데이터 저장 ###
+# 5️⃣ 데이터 저장 ###
 df_merged.to_excel("한의원_비율_노인 비율_상관분석.xlsx", index=False)
 
-### 6️⃣ 데이터 시각화 ###
-plt.figure(figsize=(10, 6))
-sns.regplot(x=df_merged["노인 비율"], y=df_merged["한의원 비율"], scatter_kws={'alpha':0.5}, line_kws={"color": "red"})
-plt.xlabel("노인 비율")
-plt.ylabel("한의원 비율")
-plt.title("노인 비율과 한의원 비율 간 관계")
-plt.savefig("한의원노인비율.png", dpi=300, bbox_inches='tight')
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+
+# ✅ 폰트 설정
+plt.rcParams['font.family'] = 'Arial'
+plt.rcParams['axes.unicode_minus'] = False  # 마이너스 부호 깨짐 방지
+
+# ✅ 그래프 그리기
+plt.figure(figsize=(8, 6))
+
+# ✅ Scatter plot 스타일 수정 (투명한 원)
+sns.scatterplot(x=df_merged["노인 비율"], y=df_merged["한의원 비율"],
+                edgecolor='blue', facecolor='none', alpha=0.7)
+
+# ✅ 선형 회귀선 (신뢰구간 제거)
+sns.regplot(x=df_merged["노인 비율"], y=df_merged["한의원 비율"],
+            scatter=False, ci=None, color="red", line_kws={"linewidth": 2})
+
+# ✅ 축 설정 (폰트 크기 조정)
+plt.xlabel("Proportion of elderly population", fontsize=14)
+plt.ylabel("Proportion of Korean medicine clinics", fontsize=14)
+
+# ✅ 그리드 추가
+plt.grid(True, linestyle="--", alpha=0.5)
+
+# ✅ 그래프 저장 (500 dpi 고해상도)
+save_path = "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/3번: 피어슨 선형회귀분석(노인비율VS의원비율)"
+save_file = os.path.join(save_path, "Elderly_vs_KoreanMedicine.png")
+plt.savefig(save_file, dpi=500, bbox_inches='tight')
 plt.show()
+
+print(f"✅ 그래프 저장 완료: {save_file}")
