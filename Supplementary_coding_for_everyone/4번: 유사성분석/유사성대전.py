@@ -188,10 +188,9 @@ os.makedirs(save_path, exist_ok=True)
 # ✅ 대전시 도로망 & 경계 데이터 가져오기
 place_name = "Daejeon, South Korea"
 G = ox.graph_from_place(place_name, network_type='drive')  # 도로망 네트워크
-gdf_boundary = ox.geocode_to_gdf(place_name)  # 대전 경계
 
 # ✅ 좌표계를 Web Mercator (EPSG:3857)로 변환 (Contextily 지도와 일치)
-gdf_boundary = gdf_boundary.to_crs(epsg=3857)
+gdf_boundary = ox.geocode_to_gdf(place_name).to_crs(epsg=5186)  # 미터 단위 변환
 
 # ✅ 의료기관 위치 가져오기 (도로망 노드 좌표)
 mc_nodes = list(G.nodes)[:200]  # MC 예제 데이터 (200개)
@@ -205,11 +204,11 @@ nhi_coords = [(G.nodes[node]['x'], G.nodes[node]['y']) for node in nhi_nodes]
 # ✅ 지도 설정
 fig, ax = plt.subplots(figsize=(8, 8))
 
-# ✅ 지도 배경 추가 (📌 지도 줌레벨 적절히 설정)
-ctx.add_basemap(ax, source=ctx.providers.CartoDB.Positron, crs=gdf_boundary.crs, zoom=12)
+# ✅ 지도 배경 추가 (📌 **줌 레벨 직접 설정** → 오류 방지)
+ctx.add_basemap(ax, source=ctx.providers.CartoDB.Positron, crs=gdf_boundary.crs, zoom=20)
 
 # ✅ 대전 경계선 추가
-gdf_boundary.plot(ax=ax, edgecolor='black', facecolor='none', linewidth=1)
+gdf_boundary.plot(ax=ax, edgecolor='black', facecolor='none', linewidth=1, zorder=10)
 
 # ✅ 도로망 추가 (도로 색 진하게)
 ox.plot_graph(G, ax=ax, node_size=0, edge_color="black", edge_alpha=0.6, show=False, close=False)
@@ -219,49 +218,57 @@ ax.scatter(*zip(*mc_coords), c='red', label='MC', s=8, alpha=0.8)  # MC: 빨간�
 ax.scatter(*zip(*kmc_coords), c='blue', label='KMC', s=8, alpha=0.8)  # KMC: 파란색
 ax.scatter(*zip(*nhi_coords), c='green', label='NHI', s=8, alpha=0.8)  # NHI: 초록색 (dot으로 변경)
 
-# ✅ 북쪽 방향 PNG 추가 (배경 제거)
+# ✅ 북쪽 방향 PNG 추가 (배경 유지)
 north_arrow = mpimg.imread(north_arrow_path)
-x_min, y_min, x_max, y_max = gdf_boundary.total_bounds
-ax.imshow(north_arrow, aspect='auto', extent=[
-    x_max - 10000, x_max - 5000,  # X 축 위치
-    y_max - 5000, y_max           # Y 축 위치
-], transform=ax.transData, alpha=1)  # ✅ 배경 투명도 조절
 
-# ✅ 📌 **0-5-10km 축척 추가 (가리지 않도록 지도 하단에 배치)**
+# 지도 경계 바운더리
+x_min, y_min, x_max, y_max = gdf_boundary.total_bounds  # 모든 좌표값 가져오기
+
+# ✅ 북쪽 방향을 지도 우측 상단에 배치
+ax.imshow(north_arrow, aspect='auto', extent=[
+    x_max - 8000, x_max - 4000,  # X 위치 (우측 상단)
+    y_max - 4000, y_max          # Y 위치 (위쪽)
+], transform=ax.transData, alpha=1, zorder=30)  # ✅ zorder를 높여 가장 위로 배치
+
+
+# ✅ 0-5-10km 축척 바 추가 (지도 좌측 하단에 배치)
 def add_scalebar(ax, x_start, y_start, length_km=10):
     """0-5-10km 축척을 직접 그리는 함수"""
-    bar_height = 1000  # 축척 바 높이
-    segment_length = length_km * 1000 / 2  # 5km 간격
+    bar_height = 1500  # 축척 바 높이 (기존보다 높임)
+    segment_length = int(length_km * 1000 / 2)  # 5km 간격
 
     # 큰 바
     ax.add_patch(patches.Rectangle((x_start, y_start), segment_length * 2, bar_height,
-                                   edgecolor='black', facecolor='none', linewidth=1))
+                                   edgecolor='black', facecolor='white', linewidth=2, zorder=30))
 
     # 중간 5km 표시
     ax.add_patch(patches.Rectangle((x_start + segment_length, y_start), segment_length, bar_height,
-                                   edgecolor='black', facecolor='none', linewidth=1))
+                                   edgecolor='black', facecolor='gray', linewidth=2, zorder=31))
 
     # 작은 1km 간격 선 추가
     for i in range(1, 10):
-        x_pos = x_start + (i * (segment_length / 5))
-        ax.plot([x_pos, x_pos], [y_start, y_start + bar_height * 0.4], color='black', linewidth=1)
+        x_pos = x_start + (i * (segment_length // 5))
+        ax.plot([x_pos, x_pos], [y_start, y_start + bar_height // 2], color='black', linewidth=2, zorder=32)
 
     # 거리 텍스트 추가
-    ax.text(x_start, y_start - 1500, '0', fontsize=10, verticalalignment='top', horizontalalignment='center')
-    ax.text(x_start + segment_length, y_start - 1500, '5', fontsize=10, verticalalignment='top', horizontalalignment='center')
-    ax.text(x_start + segment_length * 2, y_start - 1500, '10 km', fontsize=10, verticalalignment='top', horizontalalignment='center')
+    ax.text(x_start, y_start - 2000, '0', fontsize=12, fontweight='bold',
+            verticalalignment='top', horizontalalignment='center', zorder=33)
+    ax.text(x_start + segment_length, y_start - 2000, '5 km', fontsize=12, fontweight='bold',
+            verticalalignment='top', horizontalalignment='center', zorder=33)
+    ax.text(x_start + segment_length * 2, y_start - 2000, '10 km', fontsize=12, fontweight='bold',
+            verticalalignment='top', horizontalalignment='center', zorder=33)
 
-# ✅ 축척 추가 (지도 아래쪽 공간에 배치)
-add_scalebar(ax, x_min + 5000, y_min + 5000, length_km=10)
+# ✅ 축척 바 추가 (지도 좌측 하단에 배치)
+add_scalebar(ax, x_min + 7000, y_min + 7000, length_km=10)
 
-# ✅ X축, Y축 완전히 제거
+# ✅ X, Y 축 삭제
 ax.set_xticks([])
 ax.set_yticks([])
 ax.set_frame_on(False)
 
 # ✅ 그래프 저장
-output_path = os.path.join(save_path, "kmc_mc_nhi_distribution_with_scalebar.pdf")
-plt.savefig(output_path, format="pdf", bbox_inches="tight", dpi=300)
+output_path = os.path.join(save_path, "kmc_mc_nhi_distribution_with_scalebar.png")
+plt.savefig(output_path, format="png", bbox_inches="tight", dpi=1000)
 plt.show()
 
 print(f"✅ 지도 저장 완료! 저장 경로: {output_path}")
