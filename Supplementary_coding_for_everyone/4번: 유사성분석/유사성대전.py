@@ -202,7 +202,11 @@ kmc_coords = [(G.nodes[node]['x'], G.nodes[node]['y']) for node in kmc_nodes]
 nhi_coords = [(G.nodes[node]['x'], G.nodes[node]['y']) for node in nhi_nodes]
 
 # ✅ 지도 설정
-fig, ax = plt.subplots(figsize=(8, 8))
+fig, ax = plt.subplots(figsize=(12, 10))  # figsize를 정수로 설정
+
+# 축 범위 정수화
+ax.set_xlim(int(ax.get_xlim()[0]), int(ax.get_xlim()[1]))
+ax.set_ylim(int(ax.get_ylim()[0]), int(ax.get_ylim()[1]))
 
 # ✅ 지도 배경 추가 (📌 **줌 레벨 직접 설정** → 오류 방지)
 ctx.add_basemap(ax, source=ctx.providers.CartoDB.Positron, crs=gdf_boundary.crs, zoom=20)
@@ -226,8 +230,8 @@ x_min, y_min, x_max, y_max = gdf_boundary.total_bounds  # 모든 좌표값 가�
 
 # ✅ 북쪽 방향을 지도 우측 상단에 배치
 ax.imshow(north_arrow, aspect='auto', extent=[
-    x_max - 8000, x_max - 4000,  # X 위치 (우측 상단)
-    y_max - 4000, y_max          # Y 위치 (위쪽)
+    int(x_max - 8000), int(x_max - 4000),  # X 위치 (우측 상단)
+    int(y_max - 4000), int(y_max)           # Y 위치 (위쪽)
 ], transform=ax.transData, alpha=1, zorder=30)  # ✅ zorder를 높여 가장 위로 배치
 
 
@@ -268,7 +272,8 @@ ax.set_frame_on(False)
 
 # ✅ 그래프 저장
 output_path = os.path.join(save_path, "kmc_mc_nhi_distribution_with_scalebar.png")
-plt.savefig(output_path, format="png", dpi=int(600))
+# 지도 플롯 저장 시 bbox_inches 제거
+plt.savefig(output_path, format="png", dpi=600)
 plt.show()
 
 print(f"✅ 지도 저장 완료! 저장 경로: {output_path}")
