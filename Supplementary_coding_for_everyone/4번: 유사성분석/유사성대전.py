@@ -165,185 +165,103 @@ plt.show()
 
 print(f"✅ 그래프 저장 완료! 저장 경로: {save_path}")
 
-import numpy as np
+
+
+
 import os
-import matplotlib.pyplot as plt
-from tqdm import tqdm
-from numba import jit
-
-# ✅ 로컬 환경에서 파일 경로 설정
-base_path = "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/4번: 유사성분석/"  # 파일이 저장된 폴더 경로
-dist_matrix_path = os.path.join(base_path, "dist_matrix.npy")
-nodes_path = os.path.join(base_path, "nodes.npy")
-save_path = os.path.join(base_path, "Cross_K_Function_Analysis")
-
-# ✅ 저장 폴더 생성
-os.makedirs(save_path, exist_ok=True)
-
-# ✅ `dist_matrix` 및 `nodes` 불러오기
-if os.path.exists(dist_matrix_path) and os.path.exists(nodes_path):
-    print("\n✅ 저장된 최단 거리 행렬 로드 중...")
-    nodes = np.load(nodes_path, allow_pickle=True).tolist()
-    dist_matrix = np.load(dist_matrix_path)
-    print("✅ 최단 거리 행렬 로드 완료!")
-else:
-    raise FileNotFoundError("\n❌ 저장된 `dist_matrix.npy` 또는 `nodes.npy` 파일이 없습니다. 경로를 확인하세요!")
-
-# ✅ 거리 범위 설정
-r_values = np.linspace(0, 30000, 50)
-
-
-def compute_cross_k_fast(nodes, dist_matrix, sample_nodes1, sample_nodes2, distances):
-    idx1 = [nodes.index(n) for n in sample_nodes1]
-    idx2 = [nodes.index(n) for n in sample_nodes2]
-    dist_submatrix = dist_matrix[idx1][:, idx2].copy()
-    k_values = []
-    for d in tqdm(distances, desc="Cross-K 계산 중"):
-        count_per_point = np.zeros(len(sample_nodes1))
-        for k in range(len(sample_nodes1)):
-            count_per_point[k] = np.count_nonzero(dist_submatrix[k, :] <= d)
-        k_values.append(np.sum(count_per_point) / len(sample_nodes1))
-    return np.array(k_values)
-
-
-# ✅ Cross-K Function 실행
-obs_k_mc_nhi = compute_cross_k_fast(nodes, dist_matrix, nhi_nodes, mc_nodes, r_values)
-obs_k_kmc_nhi = compute_cross_k_fast(nodes, dist_matrix,  nhi_nodes, kmc_nodes, r_values)
-obs_k_kmc_mc = compute_cross_k_fast(nodes, dist_matrix,  mc_nodes, kmc_nodes, r_values)
-
-
-@jit(nopython=True, parallel=True)
-def monte_carlo_cross_k_fast(dist_matrix, sample_size1, sample_size2, distances, num_simulations=100):
-    n = dist_matrix.shape[0]
-    csr_k_values = np.zeros((num_simulations, len(distances)))
-    for i in range(num_simulations):
-        sample_idx1 = np.random.choice(n, sample_size1, replace=False)
-        sample_idx2 = np.random.choice(n, sample_size2, replace=False)
-        dist_submatrix = dist_matrix[sample_idx1][:, sample_idx2]
-        for j, d in enumerate(distances):
-            csr_k_values[i, j] = np.sum(dist_submatrix <= d) / sample_size1
-    return csr_k_values
-
-
-num_simulations = 100
-csr_k_mc_nhi = monte_carlo_cross_k_fast(dist_matrix,  len(nhi_nodes), len(mc_nodes), r_values, num_simulations)
-csr_k_kmc_nhi = monte_carlo_cross_k_fast(dist_matrix, len(nhi_nodes), len(kmc_nodes),  r_values, num_simulations)
-csr_k_kmc_mc = monte_carlo_cross_k_fast(dist_matrix, len(kmc_nodes), len(mc_nodes), r_values, num_simulations)
-
-
-def compute_csr_bounds(csr_k_values):
-    return np.mean(csr_k_values, axis=0), np.percentile(csr_k_values, 97.5, axis=0), np.percentile(csr_k_values, 2.5,
-                                                                                                   axis=0)
-
-
-csr_mean_mc_nhi, csr_upper_mc_nhi, csr_lower_mc_nhi = compute_csr_bounds(csr_k_mc_nhi)
-csr_mean_kmc_nhi, csr_upper_kmc_nhi, csr_lower_kmc_nhi = compute_csr_bounds(csr_k_kmc_nhi)
-csr_mean_kmc_mc, csr_upper_kmc_mc, csr_lower_kmc_mc = compute_csr_bounds(csr_k_kmc_mc)
-
-# ✅ 개별 그래프 저장 함수
-def save_cross_k_plot(obs_k, csr_mean, csr_upper, csr_lower, label, filename):
-    plt.figure(figsize=(7, 5))
-    plt.fill_between(r_values, csr_lower, csr_upper, color="gray", alpha=0.3)
-    plt.plot(r_values, csr_mean, label="Exp(Mean)", linestyle="-", color="green")
-    plt.plot(r_values, obs_k, label="Obs", linestyle="-", color="blue")
-    plt.xlabel("Distance (m)")
-    plt.ylabel("Cumulative number of points")
-    plt.legend()
-    plt.savefig(os.path.join(save_path, filename), dpi=500, bbox_inches="tight")
-    plt.close()
-
-# ✅ 그래프 저장 실행
-save_cross_k_plot(obs_k_mc_nhi, csr_mean_mc_nhi, csr_upper_mc_nhi, csr_lower_mc_nhi, "MC vs. NHI", "cross_k_mc_nhi.png")
-save_cross_k_plot(obs_k_kmc_nhi, csr_mean_kmc_nhi, csr_upper_kmc_nhi, csr_lower_kmc_nhi, "KMC vs. NHI", "cross_k_kmc_nhi.png")
-save_cross_k_plot(obs_k_kmc_mc, csr_mean_kmc_mc, csr_upper_kmc_mc, csr_lower_kmc_mc, "KMC vs. MC", "cross_k_kmc_mc.png")
-
-print(f"✅ 그래프 저장 완료! 저장 경로: {save_path}")
-
-
-
-
-
-
 import osmnx as ox
 import geopandas as gpd
 import contextily as ctx
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
-from matplotlib_scalebar.scalebar import ScaleBar
+import matplotlib.patches as patches
 
 # ✅ 로컬 환경에서 파일 경로 설정
-base_path = "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/4번: 유사성분석"  # 파일이 저장된 폴더 경로
-dist_matrix_path = os.path.join(base_path, "dist_matrix.npy")
-nodes_path = os.path.join(base_path, "nodes.npy")
-north_arrow_path = os.path.join(base_path, "다운로드.png")  # 북쪽 방향 PNG 파일
+base_path = "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/4번: 유사성분석"
+north_arrow_path = os.path.join(base_path, "다운로드.jpg")  # 북쪽 방향 PNG 파일
 save_path = os.path.join(base_path, "KMC_MC_NHI_Distribution")
 
 # ✅ 저장 폴더 생성
 os.makedirs(save_path, exist_ok=True)
 
-# ✅ `dist_matrix` 및 `nodes` 불러오기
-if os.path.exists(dist_matrix_path) and os.path.exists(nodes_path):
-    print("\n✅ 저장된 최단 거리 행렬 로드 중...")
-    nodes = np.load(nodes_path, allow_pickle=True).tolist()
-    dist_matrix = np.load(dist_matrix_path)
-    print("✅ 최단 거리 행렬 로드 완료!")
-else:
-    raise FileNotFoundError("\n❌ 저장된 `dist_matrix.npy` 또는 `nodes.npy` 파일이 없습니다. 경로를 확인하세요!")
-
-# ✅ 거리 범위 설정
-r_values = np.linspace(0, 30000, 50)
-
-# ✅ 대전시 도로망 가져오기 (네트워크)
+# ✅ 대전시 도로망 & 경계 데이터 가져오기
 place_name = "Daejeon, South Korea"
-G = ox.graph_from_place(place_name, network_type='drive')
+G = ox.graph_from_place(place_name, network_type='drive')  # 도로망 네트워크
+gdf_boundary = ox.geocode_to_gdf(place_name)  # 대전 경계
 
-# ✅ 대전 경계선 (Boundary) 가져오기
-gdf_boundary = ox.geocode_to_gdf(place_name)
+# ✅ 좌표계를 Web Mercator (EPSG:3857)로 변환 (Contextily 지도와 일치)
+gdf_boundary = gdf_boundary.to_crs(epsg=3857)
 
-# ✅ 의료기관 위치 변환 (도로망 노드 좌표 사용)
+# ✅ 의료기관 위치 가져오기 (도로망 노드 좌표)
+mc_nodes = list(G.nodes)[:200]  # MC 예제 데이터 (200개)
+kmc_nodes = list(G.nodes)[200:400]  # KMC 예제 데이터 (200개)
+nhi_nodes = list(G.nodes)[400:500]  # NHI 예제 데이터 (100개)
+
 mc_coords = [(G.nodes[node]['x'], G.nodes[node]['y']) for node in mc_nodes]
 kmc_coords = [(G.nodes[node]['x'], G.nodes[node]['y']) for node in kmc_nodes]
 nhi_coords = [(G.nodes[node]['x'], G.nodes[node]['y']) for node in nhi_nodes]
 
-# ✅ 좌표계를 미터 단위로 변환 (EPSG:5186 or UTM)
-gdf_boundary = gdf_boundary.to_crs(epsg=5186)
-
 # ✅ 지도 설정
 fig, ax = plt.subplots(figsize=(8, 8))
 
-# ✅ 지도 배경 추가 (위성 or 지형도)
-ctx.add_basemap(ax, source=ctx.providers.CartoDB.Positron, crs=gdf_boundary.crs)
+# ✅ 지도 배경 추가 (📌 지도 줌레벨 적절히 설정)
+ctx.add_basemap(ax, source=ctx.providers.CartoDB.Positron, crs=gdf_boundary.crs, zoom=12)
 
 # ✅ 대전 경계선 추가
 gdf_boundary.plot(ax=ax, edgecolor='black', facecolor='none', linewidth=1)
 
-# ✅ 도로망 추가
-ox.plot_graph(G, ax=ax, node_size=0, edge_color="gray", edge_alpha=0.3, show=False, close=False)
+# ✅ 도로망 추가 (도로 색 진하게)
+ox.plot_graph(G, ax=ax, node_size=0, edge_color="black", edge_alpha=0.6, show=False, close=False)
 
-# ✅ 의료기관 위치 점 찍기 (dot 사이즈 조정, NHI도 dot으로 변경)
-ax.scatter(*zip(*mc_coords), c='red', label='MC (의원)', s=5, alpha=0.8)  # MC: 빨간색
-ax.scatter(*zip(*kmc_coords), c='blue', label='KMC (한의원)', s=5, alpha=0.8)  # KMC: 파란색
-ax.scatter(*zip(*nhi_coords), c='green', label='NHI (보건소)', s=5, alpha=0.8)  # NHI: 초록색 (dot으로 변경)
+# ✅ 의료기관 위치 점 찍기 (📌 NHI도 dot으로 변경)
+ax.scatter(*zip(*mc_coords), c='red', label='MC', s=8, alpha=0.8)  # MC: 빨간색
+ax.scatter(*zip(*kmc_coords), c='blue', label='KMC', s=8, alpha=0.8)  # KMC: 파란색
+ax.scatter(*zip(*nhi_coords), c='green', label='NHI', s=8, alpha=0.8)  # NHI: 초록색 (dot으로 변경)
 
-# ✅ 북쪽 방향 PNG 이미지 추가
+# ✅ 북쪽 방향 PNG 추가 (배경 제거)
 north_arrow = mpimg.imread(north_arrow_path)
-ax.imshow(north_arrow, aspect='auto', extent=[0.85, 0.95, 0.85, 0.95], transform=ax.transAxes)
+x_min, y_min, x_max, y_max = gdf_boundary.total_bounds
+ax.imshow(north_arrow, aspect='auto', extent=[
+    x_max - 10000, x_max - 5000,  # X 축 위치
+    y_max - 5000, y_max           # Y 축 위치
+], transform=ax.transData, alpha=1)  # ✅ 배경 투명도 조절
 
-# ✅ 축척 추가 (지도 거리 반영)
-scalebar = ScaleBar(1, location='lower left', units='km', scale_loc='bottom',
-                    length_fraction=0.2, scale_bar_style='line', label_style='plain',
-                    font_properties={'size': 10}, dimension="si-length", fixed_value=1000)
-ax.add_artist(scalebar)
+# ✅ 📌 **0-5-10km 축척 추가 (가리지 않도록 지도 하단에 배치)**
+def add_scalebar(ax, x_start, y_start, length_km=10):
+    """0-5-10km 축척을 직접 그리는 함수"""
+    bar_height = 1000  # 축척 바 높이
+    segment_length = length_km * 1000 / 2  # 5km 간격
 
-# ✅ 레이블 삭제 (제목 제거)
-ax.legend(frameon=False, loc='upper right', fontsize=8)
+    # 큰 바
+    ax.add_patch(patches.Rectangle((x_start, y_start), segment_length * 2, bar_height,
+                                   edgecolor='black', facecolor='none', linewidth=1))
+
+    # 중간 5km 표시
+    ax.add_patch(patches.Rectangle((x_start + segment_length, y_start), segment_length, bar_height,
+                                   edgecolor='black', facecolor='none', linewidth=1))
+
+    # 작은 1km 간격 선 추가
+    for i in range(1, 10):
+        x_pos = x_start + (i * (segment_length / 5))
+        ax.plot([x_pos, x_pos], [y_start, y_start + bar_height * 0.4], color='black', linewidth=1)
+
+    # 거리 텍스트 추가
+    ax.text(x_start, y_start - 1500, '0', fontsize=10, verticalalignment='top', horizontalalignment='center')
+    ax.text(x_start + segment_length, y_start - 1500, '5', fontsize=10, verticalalignment='top', horizontalalignment='center')
+    ax.text(x_start + segment_length * 2, y_start - 1500, '10 km', fontsize=10, verticalalignment='top', horizontalalignment='center')
+
+# ✅ 축척 추가 (지도 아래쪽 공간에 배치)
+add_scalebar(ax, x_min + 5000, y_min + 5000, length_km=10)
+
+# ✅ X축, Y축 완전히 제거
 ax.set_xticks([])
 ax.set_yticks([])
 ax.set_frame_on(False)
 
 # ✅ 그래프 저장
-output_path = os.path.join(save_path, "kmc_mc_nhi_distribution.png")
-plt.savefig(output_path, dpi=2000, bbox_inches="tight")
+output_path = os.path.join(save_path, "kmc_mc_nhi_distribution_with_scalebar.pdf")
+plt.savefig(output_path, format="pdf", bbox_inches="tight", dpi=300)
 plt.show()
 
 print(f"✅ 지도 저장 완료! 저장 경로: {output_path}")

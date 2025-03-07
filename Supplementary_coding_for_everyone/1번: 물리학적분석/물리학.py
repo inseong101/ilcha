@@ -110,9 +110,9 @@ def log_log_analysis(df, title, filename):
     plt.ylabel("Facility Density D (in /km²)", fontsize=14)
 
     # ✅ 기울기 (α) 텍스트 추가
-    text_x = 16 ** (log_p.mean())
-    text_y = 10 ** (slope * log_p.mean() + intercept) * 2  # 위치 조정
-    plt.text(text_x, text_y, f"$\\sim \\rho^{{{slope:.2f}}}$", color="red", fontsize=16, fontweight='bold')
+    text_x = 20 ** (log_p.mean())
+    text_y = 9 ** (slope * log_p.mean() + intercept) * 2  # 위치 조정
+    plt.text(text_x, text_y, f"$\\sim \\rho^{{{slope:.2f}}}$", color="red", fontsize=30, fontweight='bold')
     plt.grid(True, which="both", linestyle="--", alpha=0.5)
 
     # ✅ 그래프 저장 (dpi=500)
