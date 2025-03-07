@@ -268,7 +268,7 @@ ax.set_frame_on(False)
 
 # ✅ 그래프 저장
 output_path = os.path.join(save_path, "kmc_mc_nhi_distribution_with_scalebar.png")
-plt.savefig(output_path, format="png", bbox_inches="tight", dpi=1000)
+plt.savefig(output_path, format="png", dpi=int(600))
 plt.show()
 
 print(f"✅ 지도 저장 완료! 저장 경로: {output_path}")
