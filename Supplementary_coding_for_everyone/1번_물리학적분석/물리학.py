@@ -82,7 +82,7 @@ plt.rcParams['font.family'] = 'Arial'
 plt.rcParams['axes.unicode_minus'] = False  # 마이너스 부호 깨짐 방지
 
 # ✅ 그래프 저장 경로 설정
-save_path = "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/1번: 물리학적분석"
+save_path = "/Supplementary_coding_for_everyone/1번_물리학적분석"
 
 
 # ✅ 로그-로그 스케일 그래프 함수
@@ -124,13 +124,13 @@ def log_log_analysis(df, title, filename):
 
 # ✅ 로그-로그 분석 및 그래프 저장
 alpha_bogun = log_log_analysis(merged_bogun, "보건소 배치 패턴",
-                               "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/1번: 물리학적분석/log_log_bogun.png")
+                               "/Supplementary_coding_for_everyone/1번_물리학적분석/log_log_bogun.png")
 alpha_clinic = log_log_analysis(merged_clinic, "의원 배치 패턴",
-                                "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/1번: 물리학적분석/log_log_clinic.png")
+                                "/Supplementary_coding_for_everyone/1번_물리학적분석/log_log_clinic.png")
 alpha_oriental = log_log_analysis(merged_oriental, "한의원 배치 패턴",
-                                  "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/1번: 물리학적분석/log_log_oriental.png")
+                                  "/Supplementary_coding_for_everyone/1번_물리학적분석/log_log_oriental.png")
 alpha_all = log_log_analysis(merged_all, "Primary clinic",
-                             "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/1번: 물리학적분석/log_log_all.png")
+                             "/Supplementary_coding_for_everyone/1번_물리학적분석/log_log_all.png")
 
 # ✅ α 값 출력
 print(f"보건소의 α 값: {alpha_bogun}")

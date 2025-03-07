@@ -451,7 +451,7 @@ plt.ylabel("Proportion of Korean medicine clinics", fontsize=14)
 plt.grid(True, linestyle="--", alpha=0.5)
 
 # ✅ 그래프 저장 (500 dpi 고해상도)
-save_path = "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/3번: 피어슨 선형회귀분석(노인비율VS의원비율)"
+save_path = "/Supplementary_coding_for_everyone/3번_피어슨 선형회귀분석(노인비율VS의원비율)"
 save_file = os.path.join(save_path, "Elderly_vs_KoreanMedicine.png")
 plt.savefig(save_file, dpi=500, bbox_inches='tight')
 plt.show()

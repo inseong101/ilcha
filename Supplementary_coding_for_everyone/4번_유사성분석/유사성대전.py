@@ -8,7 +8,7 @@ from tqdm import tqdm
 from numba import jit
 
 # ✅ 로컬 환경에서 파일 경로 설정
-base_path = "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/4번: 유사성분석"  # 파일이 저장된 폴더 경로
+base_path = "/Supplementary_coding_for_everyone/4번_유사성분석"  # 파일이 저장된 폴더 경로
 file_path_medical = os.path.join(base_path, "processed_hospitals_updated.xlsx")
 file_path_bogun = os.path.join(base_path, "processed_Bogun_updated.xlsx")
 
@@ -70,7 +70,7 @@ from tqdm import tqdm
 from numba import jit
 
 # ✅ 로컬 환경에서 파일 경로 설정
-base_path = "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/4번: 유사성분석/"  # 파일이 저장된 폴더 경로
+base_path = "/Supplementary_coding_for_everyone/4번_유사성분석/"  # 파일이 저장된 폴더 경로
 dist_matrix_path = os.path.join(base_path, "dist_matrix.npy")
 nodes_path = os.path.join(base_path, "nodes.npy")
 save_path = os.path.join(base_path, "Auto_K_Function_Analysis")
@@ -178,7 +178,7 @@ import matplotlib.image as mpimg
 import matplotlib.patches as patches
 
 # ✅ 로컬 환경에서 파일 경로 설정
-base_path = "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/4번: 유사성분석"
+base_path = "/Supplementary_coding_for_everyone/4번_유사성분석"
 north_arrow_path = os.path.join(base_path, "다운로드.jpg")  # 북쪽 방향 PNG 파일
 save_path = os.path.join(base_path, "KMC_MC_NHI_Distribution")
 
@@ -232,7 +232,7 @@ x_min, y_min, x_max, y_max = gdf_boundary.total_bounds  # 모든 좌표값 가�
 ax.imshow(north_arrow, aspect='auto', extent=[
     int(x_max - 8000), int(x_max - 4000),  # X 위치 (우측 상단)
     int(y_max - 4000), int(y_max)           # Y 위치 (위쪽)
-], transform=ax.transData, alpha=1, zorder=30)  # ✅ zorder를 높여 가장 위로 배치
+], transform=ax.transData, alpha=1, zorder=30)
 
 
 # ✅ 0-5-10km 축척 바 추가 (지도 좌측 하단에 배치)
@@ -273,7 +273,7 @@ ax.set_frame_on(False)
 # ✅ 그래프 저장
 output_path = os.path.join(save_path, "kmc_mc_nhi_distribution_with_scalebar.png")
 # 지도 플롯 저장 시 bbox_inches 제거
-plt.savefig(output_path, format="png", dpi=600)
+plt.savefig(output_path, format="png", dpi=int(600))
 plt.show()
 
 print(f"✅ 지도 저장 완료! 저장 경로: {output_path}")
