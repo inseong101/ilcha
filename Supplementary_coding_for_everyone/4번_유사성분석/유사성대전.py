@@ -164,3 +164,123 @@ plt.tight_layout()
 plt.show()
 
 print(f"✅ 그래프 저장 완료! 저장 경로: {save_path}")
+
+
+
+
+##available in Google colab## ##cross-k##
+
+import numpy as np
+from tqdm import tqdm
+import os
+
+# ✅ Google Drive에 저장된 파일 경로
+dist_matrix_path = "/content/drive/MyDrive/dist_matrix.npy"
+nodes_path = "/content/drive/MyDrive/nodes.npy"
+
+# ✅ `dist_matrix` 및 `nodes` 불러오기 (파일이 존재하면 로드)
+if os.path.exists(dist_matrix_path) and os.path.exists(nodes_path):
+    print("\n✅ 저장된 최단 거리 행렬 로드 중...")
+    nodes = np.load(nodes_path, allow_pickle=True).tolist()  # 리스트 형태로 변환
+    dist_matrix = np.load(dist_matrix_path)
+    print("✅ 최단 거리 행렬 로드 완료!")
+else:
+    raise FileNotFoundError("\n❌ 저장된 `dist_matrix.npy` 또는 `nodes.npy` 파일이 없습니다. 먼저 `compute_distance_matrix(G)` 실행 후 저장하세요!")
+
+
+
+def compute_cross_k_fast(nodes, dist_matrix, sample_nodes1, sample_nodes2, distances):
+    idx1 = [nodes.index(n) for n in sample_nodes1]
+    idx2 = [nodes.index(n) for n in sample_nodes2]
+    dist_submatrix = dist_matrix[idx1][:, idx2].copy()
+
+    k_values = []
+    N1, N2 = len(sample_nodes1), len(sample_nodes2)  # 두 집단의 개수
+
+    for d in tqdm(distances, desc="Cross-K 계산 중"):
+        # ✅ 두 점 간 거리 중복 계산 방지
+        count_per_point = np.zeros(N1)
+        for k in range(N1):
+            count_per_point[k] = np.count_nonzero(dist_submatrix[k, :] <= d)
+
+        # ✅ N1 * N2로 정규화하여 Y축 조정
+        k_values.append(np.sum(count_per_point) / (N2))
+
+    return np.array(k_values)
+
+# ✅ Cross-K Function 계산 실행
+obs_k_mc_nhi = compute_cross_k_fast(nodes, dist_matrix, mc_nodes, nhi_nodes, r_values)
+obs_k_kmc_nhi = compute_cross_k_fast(nodes, dist_matrix, kmc_nodes, nhi_nodes, r_values)
+obs_k_mc_kmc = compute_cross_k_fast(nodes, dist_matrix, mc_nodes, kmc_nodes, r_values)
+
+# ✅ 결과 확인
+print("\n✅ Cross-K Function 계산 완료!")
+
+
+# ✅ Cross-K Function 전용 Monte Carlo 시뮬레이션 추가
+from numba import jit
+
+@jit(nopython=True, parallel=True)
+def monte_carlo_cross_k_fast(dist_matrix, sample_size1, sample_size2, distances, num_simulations=100):
+    n = dist_matrix.shape[0]
+    csr_k_values = np.zeros((num_simulations, len(distances)))
+
+    for i in range(num_simulations):
+        sample_idx1 = np.random.choice(n, sample_size1, replace=False)
+        sample_idx2 = np.random.choice(n, sample_size2, replace=False)
+        dist_submatrix = dist_matrix[sample_idx1][:, sample_idx2]  # ✅ Cross-K 용 거리 행렬
+
+        for j, d in enumerate(distances):
+            csr_k_values[i, j] = np.sum(dist_submatrix <= d) / sample_size2
+
+    return csr_k_values
+
+# ✅ 거리 범위 설정
+r_values = np.linspace(0, 30000, 50)
+# ✅ CSR 평균 및 5% 신뢰구간 계산
+def compute_csr_bounds(csr_k_values):
+    return np.mean(csr_k_values, axis=0), np.percentile(csr_k_values, 97.5, axis=0), np.percentile(csr_k_values, 2.5, axis=0)
+
+# ✅ Cross-K Function Monte Carlo 100회 수행
+num_simulations = 100
+csr_k_mc_nhi = monte_carlo_cross_k_fast(dist_matrix, len(mc_nodes), len(nhi_nodes), r_values, num_simulations)
+csr_k_kmc_nhi = monte_carlo_cross_k_fast(dist_matrix, len(kmc_nodes), len(nhi_nodes), r_values, num_simulations)
+csr_k_mc_kmc = monte_carlo_cross_k_fast(dist_matrix, len(mc_nodes), len(kmc_nodes), r_values, num_simulations)
+
+# ✅ CSR 평균 및 5% 신뢰구간 계산 (Cross-K)
+csr_mean_mc_nhi, csr_upper_mc_nhi, csr_lower_mc_nhi = compute_csr_bounds(csr_k_mc_nhi)
+csr_mean_kmc_nhi, csr_upper_kmc_nhi, csr_lower_kmc_nhi = compute_csr_bounds(csr_k_kmc_nhi)
+csr_mean_mc_kmc, csr_upper_mc_kmc, csr_lower_mc_kmc = compute_csr_bounds(csr_k_mc_kmc)
+
+import matplotlib.pyplot as plt
+
+# ✅ 그래프 저장 경로 설정
+save_path = "/content/drive/MyDrive/Cross_K_Function_Analysis/"
+
+import os
+os.makedirs(save_path, exist_ok=True)  # ✅ 경로 없으면 생성
+
+# ✅ Cross-K function 그래프 생성 및 저장
+fig, axes = plt.subplots(3, 1, figsize=(7, 20))
+
+for i, (obs_k, csr_mean, csr_upper, csr_lower, label, filename, sample_size1) in enumerate(
+    [(obs_k_mc_nhi, csr_mean_mc_nhi, csr_upper_mc_nhi, csr_lower_mc_nhi, "MC vs. NHI Cross-K", "cross_k_mc_nhi.png", len(mc_nodes)),
+     (obs_k_kmc_nhi, csr_mean_kmc_nhi, csr_upper_kmc_nhi, csr_lower_kmc_nhi, "KMC vs. NHI Cross-K", "cross_k_kmc_nhi.png", len(kmc_nodes)),
+     (obs_k_mc_kmc, csr_mean_mc_kmc, csr_upper_mc_kmc, csr_lower_mc_kmc, "MC vs. KMC Cross-K", "cross_k_mc_kmc.png", len(mc_nodes))]):
+
+
+
+    axes[i].fill_between(r_values, csr_lower, csr_upper, color="gray", alpha=0.3)
+    axes[i].plot(r_values, csr_mean, label="Exp(Mean)", linestyle="-", color="green")
+    axes[i].plot(r_values, obs_k, label="Obs", linestyle="-", color="blue")
+
+    axes[i].set_xlabel("Distance (m)")
+    axes[i].set_ylabel("Cumulative Number of Points")
+    axes[i].legend()
+    axes[i].grid()
+
+    # ✅ 그래프 저장
+    plt.savefig(os.path.join(save_path, filename), dpi=300, bbox_inches="tight")
+
+plt.tight_layout()
+plt.show()

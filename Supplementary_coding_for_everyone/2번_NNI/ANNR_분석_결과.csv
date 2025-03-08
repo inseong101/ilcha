@@ -1,0 +1,4 @@
+﻿,Expected Distance (m),Observed Distance (m),ANN Ratio,Z-score,Pattern
+보건소 (NHI),2730.18,3482.2572,1.2755,0.52699,Dispersed
+의원 (MC),830.2848,112.628,0.1356,-1.653562,Clustered
+한의원 (KMC),1307.2943,303.3257,0.232,-1.469189,Clustered
