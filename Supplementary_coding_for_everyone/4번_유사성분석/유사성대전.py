@@ -8,7 +8,7 @@ from tqdm import tqdm
 from numba import jit
 
 # ✅ 로컬 환경에서 파일 경로 설정
-base_path = "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/4번_유사성분석/"  # 파일이 저장된 폴더 경로
+base_path = "/Supplementary_coding_for_everyone/4번_유사성분석/"  # 파일이 저장된 폴더 경로
 file_path_medical = os.path.join(base_path, "processed_hospitals_updated.xlsx")
 file_path_bogun = os.path.join(base_path, "processed_Bogun_updated.xlsx")
 
