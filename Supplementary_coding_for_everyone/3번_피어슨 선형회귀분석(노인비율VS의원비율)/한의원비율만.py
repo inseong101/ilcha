@@ -1,7 +1,6 @@
 import pyproj
 import pandas as pd
 import matplotlib.pyplot as plt
-import requests
 
 # 1️⃣ 엑셀 파일 로드
 file_path = "지방행정인허가에서_다운받은_파일.xlsx"

@@ -20,7 +20,7 @@ import matplotlib
 matplotlib.use("Qt5Agg")  # Mac에서 GUI 백엔드 문제 해결
 
 # ✅ 경로 설정
-base_path = "/Users/iinseong/Desktop/ilcha_clean/Supplementary_coding_for_everyone/4번_유사성분석"
+base_path = "/Supplementary_coding_for_everyone/4번_유사성분석"
 north_arrow_path = os.path.join(base_path, "다운로드.jpeg")
 save_path = os.path.join(base_path, "KMC_MC_NHI_Distribution")
 
